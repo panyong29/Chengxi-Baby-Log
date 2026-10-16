@@ -30,6 +30,16 @@
     },
     "userInterfaceStyle": "automatic",
     "version": "0.1.0",
-    "owner": "panyong29"
+    "owner": "panyong29",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
+    ]
   }
 }
