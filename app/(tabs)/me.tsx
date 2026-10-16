@@ -35,10 +35,10 @@ export default function MeScreen() {
   }
 
   async function onSaveNick() {
-    if (!nick.trim()) return;
-    await pb.collection('users').update(userId, { nickname: nick.trim() }).catch(() => {});
+    if (!nick.trim() || !family) return;
+    await pb.collection('family').update(family.id, { baby_nickname: nick.trim() }).catch(() => {});
     Alert.alert('已保存', '宝宝昵称：' + nick.trim());
-    if (family) useStore.setState({ family: { ...family, babyNickname: nick.trim() } });
+    useStore.setState({ family: { ...family, babyNickname: nick.trim() } });
     setNick('');
   }
 

@@ -109,8 +109,30 @@ export function subscribeRealtime(pb: PocketBase, familyId: string) {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function toServerPayload(collection: string, row: any) {
-  const { localId, serverId, synced, updatedAt, ...rest } = row;
-  return { ...rest, client_id: localId }; // client_id 用于服务端去重兜底
+  // 本地 camelCase → PocketBase snake_case 显式映射
+  // 注意：family 是必填 relation，不能漏
+  const toDate = (ms: number | null) => ms ? new Date(ms).toISOString() : null;
+  const payload: any = {
+    client_id: row.localId, // 用于服务端去重兜底
+    family: row.familyId,
+    caregiver: row.caregiverId,
+    kind: row.kind ?? null,
+    side: row.side ?? null,
+    note: row.note ?? null,
+    is_backfill: row.isBackfill ? true : false,
+    deleted: row.deleted ? true : false,
+  };
+  if (collection === 'feed_logs') {
+    payload.duration_min = row.durationMin ?? null;
+    payload.amount_ml = row.amountMl ?? null;
+    payload.started_at = toDate(row.startedAt);
+  } else if (collection === 'diaper_logs') {
+    payload.logged_at = toDate(row.loggedAt);
+  } else if (collection === 'sleep_logs') {
+    payload.started_at = toDate(row.startedAt);
+    payload.ended_at = toDate(row.endedAt);
+  }
+  return payload;
 }
 
 function fromServerPayload(collection: string, rec: any, familyId: string) {
