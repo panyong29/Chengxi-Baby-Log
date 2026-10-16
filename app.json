@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#101014",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.newborn.tracker"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c8f6961f-7e20-4905-b9af-1c280ef67189"
+      }
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.newborn.tracker"
+    },
+    "name": "澄澄记录",
+    "orientation": "portrait",
+    "scheme": "newborn-tracker",
+    "slug": "chengcheng-tracker",
+    "splash": {
+      "backgroundColor": "#101014",
+      "image": "./assets/splash.png",
+      "resizeMode": "contain"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/"
+    },
+    "userInterfaceStyle": "automatic",
+    "version": "0.1.0",
+    "owner": "panyong29"
+  }
+}
