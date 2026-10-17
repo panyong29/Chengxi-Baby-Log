@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store/useStore';
 
 export const Dark = {
@@ -11,6 +12,40 @@ export const Light = {
   sub: '#6b6b76', line: '#e2e2e8', acc: '#f59e0b', accTx: '#ffffff',
 };
 export const useTheme = () => (useStore((s) => s.theme) === 'dark' ? Dark : Light);
+
+/** 全屏手机安全区容器：顶部避开刘海/状态栏，底部避开手势条 */
+export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const T = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[{
+      flex: 1, backgroundColor: T.bg,
+      paddingTop: Math.max(insets.top, 12),
+      paddingBottom: Math.max(insets.bottom, 12),
+    }, style]}>
+      {children}
+    </View>
+  );
+}
+
+/** 可滚动页面容器：同上，内容区统一内边距；键盘弹起时点按钮也照常响应 */
+export function ScreenScroll({ children, pad = 16 }: { children: React.ReactNode; pad?: number }) {
+  const T = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: T.bg }}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{
+        padding: pad,
+        paddingTop: Math.max(insets.top, 12),
+        paddingBottom: Math.max(insets.bottom, 24),
+      }}
+    >
+      {children}
+    </ScrollView>
+  );
+}
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const T = useTheme();

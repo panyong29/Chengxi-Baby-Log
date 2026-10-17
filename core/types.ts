@@ -4,6 +4,7 @@ export type BreastSide = 'left' | 'right';
 export type DiaperKind = 'wet' | 'dirty' | 'mixed';
 export type LogKind = 'feed' | 'diaper' | 'sleep';
 export type Role = 'parent' | 'caregiver';
+export type EventKind = 'vaccine' | 'medical' | 'other';
 
 export interface FeedLog {
   localId: string;

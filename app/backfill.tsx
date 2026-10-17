@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, Platform, ScrollView, View } from 'react-native';
+import { Alert,  Platform,  TextInput,  View } from 'react-native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ActBtn, Card, GhostBtn, Label, PrimaryBtn, styles, useTheme } from '../components/ui';
+import { ActBtn, Card, GhostBtn, Label, PrimaryBtn, styles, useTheme, ScreenScroll } from '../components/ui';
 import { logBottle, logDiaper } from '../core/logging';
 import { saveLocal } from '../sync/engine';
 import { useStore } from '../store/useStore';
@@ -19,6 +19,7 @@ export default function BackfillScreen() {
   const [at, setAt] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [ml, setMl] = useState('90');
+  const [sleepMin, setSleepMin] = useState('60'); // O4：补录睡眠时长（分钟），默认 60
 
   async function submit() {
     if (!kind) return Alert.alert('提示', '先选补录类型');
@@ -28,13 +29,18 @@ export default function BackfillScreen() {
     const ctx = { familyId: s.family!.id, caregiverId: s.userId };
     try {
       if (kind === 'feed') {
-        const v = parseInt(ml, 10) || 90;
+        // G5：之前 parseInt(ml,10)||90，输错会静默记成 90ml
+        const v = parseInt(ml, 10);
+        if (!v || v <= 0) return Alert.alert('提示', '毫升数填的不对，请输入数字');
+        if (v > 500) return Alert.alert('提示', '毫升数不太对吧？最大 500ml');
         await logBottle(v, ts);
       } else if (kind === 'diaper') {
         await logDiaper(diaperKind, ts);
       } else {
+        const mins = parseInt(sleepMin, 10);
+        if (!mins || mins <= 0 || mins > 1440) return Alert.alert('提示', '睡眠时长填的不对（1–1440 分钟）');
         await saveLocal('sleep_logs', {
-          startedAt: ts - 3600000, endedAt: ts, note: null, isBackfill: 1, ...ctx,
+          startedAt: ts - mins * 60000, endedAt: ts, note: null, isBackfill: 1, ...ctx,
         });
       }
       Alert.alert('已保存', '补录成功');
@@ -45,7 +51,7 @@ export default function BackfillScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 16, paddingTop: 60 }}>
+    <ScreenScroll>
       <Card>
         <Label>补录类型</Label>
         <View style={styles.grid2}>
@@ -67,6 +73,28 @@ export default function BackfillScreen() {
             </View>
           </>
         )}
+        {kind === 'feed' && (
+          <>
+            <View style={styles.gap} />
+            <Label>瓶喂毫升数（ml）</Label>
+            <TextInput
+              value={ml} onChangeText={setMl} keyboardType="number-pad" placeholder="例如：90"
+              placeholderTextColor={T.sub}
+              style={{ backgroundColor: T.card2, borderColor: T.line, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 17, color: T.text }}
+            />
+          </>
+        )}
+        {kind === 'sleep' && (
+          <>
+            <View style={styles.gap} />
+            <Label>睡了多久（分钟）</Label>
+            <TextInput
+              value={sleepMin} onChangeText={setSleepMin} keyboardType="number-pad" placeholder="例如：90"
+              placeholderTextColor={T.sub}
+              style={{ backgroundColor: T.card2, borderColor: T.line, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 17, color: T.text }}
+            />
+          </>
+        )}
         <View style={styles.gap} />
         <Label>发生时间</Label>
         <GhostBtn text={at.toLocaleString('zh-CN', { hour12: false })} onPress={() => setShowPicker(true)} />
@@ -81,6 +109,6 @@ export default function BackfillScreen() {
         <PrimaryBtn text="保存补录" onPress={submit} />
       </Card>
       <GhostBtn text="← 返回" onPress={() => router.back()} />
-    </ScrollView>
+    </ScreenScroll>
   );
 }

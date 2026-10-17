@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, ScrollView, TextInput, View } from 'react-native';
+import { Alert,  TextInput,  View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ActBtn, Card, GhostBtn, Hint, Label, PrimaryBtn, styles, useTheme } from '../components/ui';
+import { ActBtn, Card, GhostBtn, Hint, Label, PrimaryBtn, styles, useTheme, ScreenScroll } from '../components/ui';
 import { logDiaper } from '../core/logging';
 import type { DiaperKind } from '../core/types';
 
@@ -12,7 +12,7 @@ export default function DiaperScreen() {
   const [note, setNote] = useState('');
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 16, paddingTop: 60 }}>
+    <ScreenScroll>
       <View style={styles.grid2}>
         <ActBtn emoji="💧" text="湿" selected={kind === 'wet'} onPress={() => setKind('wet')} />
         <ActBtn emoji="💩" text="脏" selected={kind === 'dirty'} onPress={() => setKind('dirty')} />
@@ -38,6 +38,6 @@ export default function DiaperScreen() {
       <GhostBtn text="← 返回" onPress={() => router.back()} />
       <View style={styles.gap} />
       <Hint>💡 大便颜色/性状有异常（血丝、陶土色、黑色柏油样）建议拍照并咨询医生。</Hint>
-    </ScrollView>
+    </ScreenScroll>
   );
 }

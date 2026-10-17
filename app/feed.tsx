@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, ScrollView, TextInput, View } from 'react-native';
+import { Alert,  TextInput,  View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ActBtn, Card, GhostBtn, Hint, Label, PrimaryBtn, styles, useTheme } from '../components/ui';
+import { ActBtn, Card, GhostBtn, Hint, Label, PrimaryBtn, styles, useTheme, ScreenScroll } from '../components/ui';
 import { logBottle, startTimer } from '../core/logging';
 
 export default function FeedScreen() {
@@ -12,7 +12,7 @@ export default function FeedScreen() {
   const [ml, setMl] = useState('');
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 16, paddingTop: 60 }}>
+    <ScreenScroll>
       <Card>
         <View style={styles.row}>
           <GhostBtn text="🤱 亲喂" onPress={() => setTab('b')} />
@@ -28,8 +28,9 @@ export default function FeedScreen() {
           </View>
           <View style={styles.gap} />
           <PrimaryBtn text="开始计时" onPress={() => {
-            startTimer('feed', `亲喂${side === 'left' ? '左胸' : '右胸'}计时中`, { side });
-            router.back();
+            const ok = startTimer('feed', `亲喂${side === 'left' ? '左胸' : '右胸'}计时中`, { side });
+            if (ok) router.back();
+            else Alert.alert('有计时在进行中', '先去首页结束当前计时，再开始新的亲喂计时。');
           }} />
           <View style={styles.gap} />
           <Hint>💡 上次是哪边、下次换边，时间线里能看到。</Hint>
@@ -60,6 +61,6 @@ export default function FeedScreen() {
       )}
       <View style={styles.gap} />
       <GhostBtn text="← 返回" onPress={() => router.back()} />
-    </ScrollView>
+    </ScreenScroll>
   );
 }

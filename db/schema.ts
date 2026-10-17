@@ -1,6 +1,6 @@
 // 本地 SQLite schema（Drizzle ORM）
 // 原则：本地是唯一真相源；_synced=0 表示还没同步到 PocketBase
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
 
 const baseLog = {
   localId: text('local_id').primaryKey(),      // 客户端生成 UUID，重试天然幂等
@@ -35,6 +35,21 @@ export const sleepLogs = sqliteTable('sleep_logs', {
   endedAt: integer('ended_at'),
 });
 
+// O3：体重记录
+export const weightLogs = sqliteTable('weight_logs', {
+  ...baseLog,
+  weightKg: real('weight_kg').notNull(),
+  loggedAt: integer('logged_at').notNull(),
+});
+
+// O3：事件记录（疫苗 / 就医 / 其他）
+export const eventLogs = sqliteTable('event_logs', {
+  ...baseLog,
+  kind: text('kind').notNull(), // 'vaccine' | 'medical' | 'other'
+  title: text('title').notNull(),
+  loggedAt: integer('logged_at').notNull(),
+});
+
 // 待同步队列：App 写本地的同时插一条，worker 后台排空
 export const syncQueue = sqliteTable('sync_queue', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -49,3 +64,5 @@ export const syncQueue = sqliteTable('sync_queue', {
 export type FeedLog = typeof feedLogs.$inferInsert;
 export type DiaperLog = typeof diaperLogs.$inferInsert;
 export type SleepLog = typeof sleepLogs.$inferInsert;
+export type WeightLog = typeof weightLogs.$inferInsert;
+export type EventLog = typeof eventLogs.$inferInsert;

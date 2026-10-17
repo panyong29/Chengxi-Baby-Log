@@ -5,10 +5,15 @@ import NetInfo from '@react-native-community/netinfo';
 import { eq, asc } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { db } from '../db/client';
-import { feedLogs, diaperLogs, sleepLogs, syncQueue } from '../db/schema';
+import { feedLogs, diaperLogs, sleepLogs, weightLogs, eventLogs, syncQueue } from '../db/schema';
 
-const TABLES: Record<string, any> = { feed_logs: feedLogs, diaper_logs: diaperLogs, sleep_logs: sleepLogs };
-const BACKOFF = [60_000, 300_000, 1_800_000]; // 1min / 5min / 30min
+const TABLES: Record<string, any> = {
+  feed_logs: feedLogs, diaper_logs: diaperLogs, sleep_logs: sleepLogs,
+  weight_logs: weightLogs, event_logs: eventLogs,
+};
+// G2：手机时钟小幅漂移容差（5 分钟）：远端更新落在此范围内仍视为"更新"，
+// 避免手机时钟偏快时远端数据被永久忽略。大幅漂移仍无法处理（见评审 G2）。
+const SKEW_TOLERANCE = 5 * 60_000;
 
 export const newId = () => Crypto.randomUUID();
 
@@ -61,7 +66,13 @@ export async function drainQueue(pb?: PocketBase) {
           if (local?.serverId) await client.collection(item.collection).update(local.serverId, payload);
         } else {
           const [local] = await db.select().from(table).where(eq(table.localId, item.localId));
-          if (local?.serverId) {
+          if (!local) {
+            // S3：本地行已不在（被 realtime 的远端删除清掉了）：此同步项作废，直接丢弃。
+            // 若走 create 分支，会把已删除的记录重新写回服务端导致"复活"。
+            await db.delete(syncQueue).where(eq(syncQueue.id, item.id));
+            continue;
+          }
+          if (local.serverId) {
             await client.collection(item.collection).update(local.serverId, payload);
           } else {
             const rec = await client.collection(item.collection).create(payload);
@@ -72,13 +83,11 @@ export async function drainQueue(pb?: PocketBase) {
         await db.delete(syncQueue).where(eq(syncQueue.id, item.id));
       } catch (e) {
         const attempts = item.attempts + 1;
-        if (attempts >= 10) {
-          console.warn('[sync] 放弃', item.collection, item.localId);
-          await db.delete(syncQueue).where(eq(syncQueue.id, item.id));
-        } else {
-          await db.update(syncQueue).set({ attempts }).where(eq(syncQueue.id, item.id));
-          await sleep(BACKOFF[Math.min(attempts - 1, BACKOFF.length - 1)]);
-        }
+        await db.update(syncQueue).set({ attempts }).where(eq(syncQueue.id, item.id));
+        // G1：失败项不再静默丢弃（之前 attempts>=10 直接删队列项且只 console.warn），
+        // 保留到下一轮重试；本轮继续处理下一条，避免一个坏项卡住整个队列。
+        console.warn('[sync] 失败稍后重试', item.collection, item.localId, 'attempt', attempts);
+        continue;
       }
     }
   } finally {
@@ -86,19 +95,25 @@ export async function drainQueue(pb?: PocketBase) {
   }
 }
 
-/** 3. Realtime 订阅：远端变更拉回本地（LWW） */
+/** 3. Realtime 订阅：远端变更拉回本地（LWW + 5 分钟时钟容差） */
 export function subscribeRealtime(pb: PocketBase, familyId: string) {
-  (['feed_logs', 'diaper_logs', 'sleep_logs'] as const).forEach((col) => {
+  (['feed_logs', 'diaper_logs', 'sleep_logs', 'weight_logs', 'event_logs'] as const).forEach((col) => {
     pb.collection(col).subscribe('*', async (e) => {
       if (e.record.family !== familyId) return;
       const table = TABLES[col];
       const [local] = await db.select().from(table).where(eq(table.serverId, e.record.id));
       const remoteUpdated = new Date(e.record.updated).getTime();
       if (e.action === 'delete' || e.record.deleted) {
-        if (local) await db.delete(table).where(eq(table.localId, local.localId));
+        if (!local) return;
+        // S3：本地若有更新的未同步修改，本地胜出（LWW），保留本地行；
+        // 否则先清掉该记录的待同步项，再删除本地行（不清队列会导致 drainQueue 把记录"复活"）
+        const pending = await db.select().from(syncQueue).where(eq(syncQueue.localId, local.localId));
+        if (pending.length > 0 && (local.updatedAt ?? 0) > remoteUpdated) return;
+        for (const p of pending) await db.delete(syncQueue).where(eq(syncQueue.id, p.id));
+        await db.delete(table).where(eq(table.localId, local.localId));
         return;
       }
-      if (!local || remoteUpdated > (local.updatedAt ?? 0)) {
+      if (!local || remoteUpdated > (local.updatedAt ?? 0) - SKEW_TOLERANCE) {
         const row = fromServerPayload(col, e.record, familyId);
         await db.insert(table).values(row).onConflictDoUpdate({ target: table.localId, set: row });
       }
@@ -106,7 +121,11 @@ export function subscribeRealtime(pb: PocketBase, familyId: string) {
   });
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** G1：待同步条数（"我的"页展示用） */
+export async function getPendingCount(): Promise<number> {
+  const rows = await db.select({ id: syncQueue.id }).from(syncQueue);
+  return rows.length;
+}
 
 function toServerPayload(collection: string, row: any) {
   // 本地 camelCase → PocketBase snake_case 显式映射
@@ -131,6 +150,13 @@ function toServerPayload(collection: string, row: any) {
   } else if (collection === 'sleep_logs') {
     payload.started_at = toDate(row.startedAt);
     payload.ended_at = toDate(row.endedAt);
+  } else if (collection === 'weight_logs') {
+    payload.weight_kg = row.weightKg ?? null;
+    payload.logged_at = toDate(row.loggedAt);
+  } else if (collection === 'event_logs') {
+    payload.kind = row.kind ?? null;
+    payload.title = row.title ?? null;
+    payload.logged_at = toDate(row.loggedAt);
   }
   return payload;
 }
@@ -150,6 +176,8 @@ function fromServerPayload(collection: string, rec: any, familyId: string) {
     side: rec.side ?? null,
     durationMin: rec.duration_min ?? null,
     amountMl: rec.amount_ml ?? null,
+    weightKg: rec.weight_kg ?? null,
+    title: rec.title ?? null,
     startedAt: rec.started_at ? new Date(rec.started_at).getTime() : null,
     loggedAt: rec.logged_at ? new Date(rec.logged_at).getTime() : null,
     endedAt: rec.ended_at ? new Date(rec.ended_at).getTime() : null,

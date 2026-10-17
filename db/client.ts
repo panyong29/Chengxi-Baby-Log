@@ -32,6 +32,19 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   local_id TEXT NOT NULL, op TEXT NOT NULL, payload TEXT NOT NULL,
   attempts INTEGER DEFAULT 0, created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS weight_logs (
+  local_id TEXT PRIMARY KEY, server_id TEXT, family_id TEXT NOT NULL,
+  caregiver_id TEXT NOT NULL, weight_kg REAL NOT NULL, logged_at INTEGER NOT NULL,
+  note TEXT, is_backfill INTEGER DEFAULT 0, deleted INTEGER DEFAULT 0,
+  synced INTEGER DEFAULT 0, updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS event_logs (
+  local_id TEXT PRIMARY KEY, server_id TEXT, family_id TEXT NOT NULL,
+  caregiver_id TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
+  logged_at INTEGER NOT NULL,
+  note TEXT, is_backfill INTEGER DEFAULT 0, deleted INTEGER DEFAULT 0,
+  synced INTEGER DEFAULT 0, updated_at INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_q_created ON sync_queue (created_at);
 `);
 

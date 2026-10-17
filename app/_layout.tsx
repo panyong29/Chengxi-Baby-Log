@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
 import { pb, restoreAuth } from '../api/pocketbase';
 import { drainQueue, subscribeRealtime } from '../sync/engine';
@@ -8,12 +10,21 @@ import { network } from '../core/adapters';
 import { Dark } from '../components/ui';
 
 export default function RootLayout() {
-  const { ready, authed, setReady, setAuth, restoreTimer, family } = useStore();
+  const { ready, authed, setReady, setAuth, restoreTimer, restoreTheme, family, theme } = useStore();
   const router = useRouter();
   const segments = useSegments();
 
+  // G1：回到前台时也排空同步队列（之前只在网络变化/启动时触发）
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') drainQueue();
+    });
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     (async () => {
+      await restoreTheme(); // G4：恢复用户选的主题
       const ok = await restoreAuth();
       if (ok && pb.authStore.record) {
         const u: any = pb.authStore.record;
@@ -48,20 +59,28 @@ export default function RootLayout() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, backgroundColor: Dark.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={Dark.acc} />
-      </View>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: Dark.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={Dark.acc} />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Dark.bg } }}>
-      <Stack.Screen name="auth" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="feed" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="diaper" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="sleep" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="backfill" options={{ presentation: 'modal' }} />
-    </Stack>
+    <SafeAreaProvider>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Dark.bg } }}>
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="feed" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="diaper" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="sleep" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="backfill" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="weight" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="event" options={{ presentation: 'modal' }} />
+      </Stack>
+    </SafeAreaProvider>
   );
 }

@@ -16,7 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.newborn.tracker"
     },
-    "name": "澄澄记录",
+    "name": "Chengxi Baby Log",
     "orientation": "portrait",
     "scheme": "newborn-tracker",
     "slug": "chengcheng-tracker",

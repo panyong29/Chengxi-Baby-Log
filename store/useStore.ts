@@ -14,12 +14,13 @@ interface AppState {
   clearAuth: () => void;
   setReady: () => void;
   toggleTheme: () => void;
+  restoreTheme: () => Promise<void>;
   startTimer: (t: ActiveTimer) => void;
   stopTimer: () => void;
   restoreTimer: () => Promise<void>;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   ready: false,
   authed: false,
   userId: '',
@@ -31,7 +32,16 @@ export const useStore = create<AppState>((set) => ({
   setAuth: (v) => set({ authed: true, userId: v.userId, nickname: v.nickname, family: v.family }),
   clearAuth: () => set({ authed: false, userId: '', nickname: '', family: null, timer: null }),
   setReady: () => set({ ready: true }),
-  toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+  // G4：主题持久化（之前只改内存，重启回到深色）
+  toggleTheme: () => {
+    const t = get().theme === 'dark' ? 'light' : 'dark';
+    set({ theme: t });
+    vault.set('bl_theme', t);
+  },
+  restoreTheme: async () => {
+    const t = await vault.get('bl_theme');
+    if (t === 'light' || t === 'dark') set({ theme: t });
+  },
 
   startTimer: (t) => {
     set({ timer: t });

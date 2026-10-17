@@ -34,16 +34,9 @@ export interface Notifier {
 
 import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
-import * as Notifications from 'expo-notifications';
 
-class MemoryKV implements KeyValueStore {
-  private m = new Map<string, string>();
-  async get(k: string) { return this.m.get(k) ?? null; }
-  async set(k: string, v: string) { this.m.set(k, v); }
-  async del(k: string) { this.m.delete(k); }
-}
-
-export const kvStore: KeyValueStore = new MemoryKV(); // MVP 用内存；设置项少，需要持久化时换 SQLite kv 表
+// O5：kvStore（MemoryKV）与 notifier 的实现已删除——全工程无人引用。
+// 接口定义保留在上面，小程序迁移时按接口实现即可。
 
 export const vault: SecureVault = {
   get: (k) => SecureStore.getItemAsync(k),
@@ -57,15 +50,4 @@ export const network: NetworkMonitor = {
     const sub = NetInfo.addEventListener((s) => cb(!!s.isConnected));
     return () => sub();
   },
-};
-
-export const notifier: Notifier = {
-  requestPermission: async () => (await Notifications.requestPermissionsAsync()).granted,
-  schedule: async (title, body, sec) => {
-    await Notifications.scheduleNotificationAsync({
-      content: { title, body },
-      trigger: { seconds: sec } as any,
-    });
-  },
-  cancelAll: () => Notifications.cancelAllScheduledNotificationsAsync(),
 };
