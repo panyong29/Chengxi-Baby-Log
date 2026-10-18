@@ -37,17 +37,30 @@ pb_hooks/       # PocketBase 自定义 hook（邀请码加入、创建幂等）
 ## 本地运行
 
 ```bash
-cd app
 npm install
 npx expo start
 ```
 
 ## 打包（EAS）
 
+先登录 Expo 账号：`eas login`，然后：
+
+### Android APK（内部测试版）
+
 ```bash
-cd app
 eas build -p android --profile preview
 ```
+
+构建完成后去 [Expo 构建页](https://expo.dev) 下载 APK，传到手机安装即可。
+
+### iPhone
+
+```bash
+eas build -p ios --profile preview
+```
+
+- 模拟器包：免费，但只能在 Mac 的模拟器里跑，真机装不上
+- 真机安装/TestFlight：需要 Apple Developer 账号（688/年）
 
 ## 后端部署
 
