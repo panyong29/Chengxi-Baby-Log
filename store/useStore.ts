@@ -10,9 +10,11 @@ interface AppState {
   family: Family | null;
   theme: 'dark' | 'light';
   timer: ActiveTimer | null;
+  initError: string | null; // 启动初始化失败时的错误码（给用户报给开发者看）
   setAuth: (v: { userId: string; nickname: string; family: Family }) => void;
   clearAuth: () => void;
   setReady: () => void;
+  setInitError: (e: string | null) => void;
   toggleTheme: () => void;
   restoreTheme: () => Promise<void>;
   startTimer: (t: ActiveTimer) => void;
@@ -28,10 +30,12 @@ export const useStore = create<AppState>((set, get) => ({
   family: null,
   theme: 'dark', // 凌晨场景默认深色
   timer: null,
+  initError: null,
 
   setAuth: (v) => set({ authed: true, userId: v.userId, nickname: v.nickname, family: v.family }),
   clearAuth: () => set({ authed: false, userId: '', nickname: '', family: null, timer: null }),
   setReady: () => set({ ready: true }),
+  setInitError: (e) => set({ initError: e }),
   // G4：主题持久化（之前只改内存，重启回到深色）
   toggleTheme: () => {
     const t = get().theme === 'dark' ? 'light' : 'dark';

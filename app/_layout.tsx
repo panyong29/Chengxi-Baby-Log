@@ -4,13 +4,13 @@ import { ActivityIndicator, AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
-import { pb, restoreAuth } from '../api/pocketbase';
+import { pb, restoreAuth, logout } from '../api/pocketbase';
 import { drainQueue, subscribeRealtime } from '../sync/engine';
 import { network } from '../core/adapters';
 import { Dark } from '../components/ui';
 
 export default function RootLayout() {
-  const { ready, authed, setReady, setAuth, restoreTimer, restoreTheme, family, theme } = useStore();
+  const { ready, authed, setReady, setAuth, setInitError, restoreTimer, restoreTheme, family, theme } = useStore();
   const router = useRouter();
   const segments = useSegments();
 
@@ -24,25 +24,38 @@ export default function RootLayout() {
 
   useEffect(() => {
     (async () => {
-      await restoreTheme(); // G4：恢复用户选的主题
-      const ok = await restoreAuth();
-      if (ok && pb.authStore.record) {
-        const u: any = pb.authStore.record;
-        const fam: any = u.family
-          ? await pb.collection('family').getOne(u.family).catch(() => null)
-          : null;
-        if (fam) {
-          setAuth({
-            userId: u.id, nickname: u.nickname || '我',
-            family: {
-              id: fam.id, babyNickname: fam.baby_nickname,
-              babyBirthdate: fam.baby_birthdate, inviteCode: fam.invite_code,
-            },
-          });
+      try {
+        await restoreTheme(); // G4：恢复用户选的主题
+        const ok = await restoreAuth();
+        if (ok && pb.authStore.record) {
+          const u: any = pb.authStore.record;
+          const fam: any = u.family
+            ? await pb.collection('family').getOne(u.family).catch(() => null)
+            : null;
+          if (fam) {
+            setAuth({
+              userId: u.id, nickname: u.nickname || '我',
+              family: {
+                id: fam.id, babyNickname: fam.baby_nickname,
+                babyBirthdate: fam.baby_birthdate, inviteCode: fam.invite_code,
+              },
+            });
+          }
         }
+        await restoreTimer(); // 恢复被杀掉的计时器
+      } catch (e) {
+        // 启动初始化绝不能闪退：出错就清掉本地登录态，回退到登录页，并记录错误码
+        const msg = e instanceof Error ? e.message : String(e);
+        // 错误码：INIT- + 错误信息哈希前6位，方便用户报给开发者定位
+        let h = 0;
+        for (let i = 0; i < msg.length; i++) h = ((h << 5) - h + msg.charCodeAt(i)) | 0;
+        const code = `INIT-${Math.abs(h).toString(16).toUpperCase().padStart(6, '0').slice(0, 6)}`;
+        console.warn('[init] 启动初始化失败', code, msg);
+        setInitError(`${code}: ${msg.slice(0, 120)}`);
+        try { await logout(); } catch { /* ignore */ }
+      } finally {
+        setReady();
       }
-      await restoreTimer(); // 恢复被杀掉的计时器
-      setReady();
     })();
   }, []);
 
@@ -53,9 +66,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (!ready || !authed || !familyId) return;
     const cleanups: Array<() => void> = [];
-    cleanups.push(network.onChange(() => drainQueue()));
-    drainQueue();
-    cleanups.push(subscribeRealtime(pb, familyId));
+    try {
+      cleanups.push(network.onChange(() => drainQueue()));
+      drainQueue();
+      cleanups.push(subscribeRealtime(pb, familyId));
+    } catch (e) {
+      console.warn('[sync] 启动同步失败', e);
+    }
     return () => {
       cleanups.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
     };

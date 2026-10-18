@@ -11,6 +11,8 @@ export default function AuthScreen() {
   const T = useTheme();
   const router = useRouter();
   const setAuth = useStore((s) => s.setAuth);
+  const initError = useStore((s) => s.initError);
+  const setInitError = useStore((s) => s.setInitError);
   const [mode, setMode] = useState<'create' | 'join' | 'login'>('create');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +42,7 @@ export default function AuthScreen() {
           nickname: nickname.trim(), password, babyNickname: baby.trim(),
         });
         const u: any = pb.authStore.record;
-        setAuth({
+        setInitError(null); setAuth({
           userId: u.id, nickname: u.nickname,
           family: { id: r.family, babyNickname: baby.trim(), inviteCode: r.invite_code },
         });
@@ -60,7 +62,7 @@ export default function AuthScreen() {
           setBusy(false); return;
         }
         const fam: any = await pb.collection('family').getOne(u.family);
-        setAuth({
+        setInitError(null); setAuth({
           userId: u.id, nickname: u.nickname || '我',
           family: {
             id: fam.id, babyNickname: fam.baby_nickname,
@@ -72,7 +74,7 @@ export default function AuthScreen() {
         const r = await joinWithInviteCode({ inviteCode: code.trim(), nickname: nickname.trim() });
         const u: any = pb.authStore.record;
         const fam: any = await pb.collection('family').getOne(r.family);
-        setAuth({
+        setInitError(null); setAuth({
           userId: u.id, nickname: u.nickname,
           family: {
             id: fam.id, babyNickname: fam.baby_nickname,
@@ -92,6 +94,15 @@ export default function AuthScreen() {
     <ScreenScroll pad={20}>
       <Text style={{ color: T.text, fontSize: 30, fontWeight: '800', marginBottom: 6 }}>🍼 宝宝记录</Text>
       <Hint>一家人的喂养 / 尿布 / 睡眠，都记在这里。</Hint>
+      {initError ? (
+        <Pressable
+          onPress={async () => { await Clipboard.setStringAsync(initError); Alert.alert('已复制', '错误码已复制，把它发给开发者'); }}
+          style={{ backgroundColor: '#3a2a1a', borderColor: '#a06a2a', borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12 }}
+        >
+          <Text style={{ color: '#f0a050', fontSize: 14, fontWeight: '700', marginBottom: 4 }}>⚠️ 启动时出了点问题（点我复制）</Text>
+          <Text style={{ color: '#f0a050', fontSize: 12 }}>{initError}</Text>
+        </Pressable>
+      ) : null}
       <View style={{ height: 20 }} />
 
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
