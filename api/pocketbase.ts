@@ -1,12 +1,14 @@
 import PocketBase from 'pocketbase';
-import EventSource from 'react-native-sse';
+import EventSourcePolyfill from '../core/eventsource-polyfill';
 import { vault } from '../core/adapters';
 
 // RN 的 Hermes 没有 EventSource 全局对象，PocketBase 的 realtime 订阅
 // 会在 queueMicrotask 里 new EventSource() 直接抛 ReferenceError 导致闪退，
-// 而且 try/catch 抓不住（微任务里的异常）。这里先打上 polyfill。
+// 而且 try/catch 抓不住（微任务里的异常）。
+// 注意：必须从本地 core/eventsource-polyfill 导入（react-native-sse 的源码），
+// 直接 import 'react-native-sse' 会被 Metro tree-shake 掉导致包里没有代码（0.1.2 的教训）。
 if (typeof (global as any).EventSource === 'undefined') {
-  (global as any).EventSource = EventSource;
+  (global as any).EventSource = EventSourcePolyfill;
 }
 
 // 上线地址：https://kids.appifa.com（nginx SNI 分流 -> 11443 -> 127.0.0.1:8090）
