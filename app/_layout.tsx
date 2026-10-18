@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -39,16 +39,27 @@ export default function RootLayout() {
               babyBirthdate: fam.baby_birthdate, inviteCode: fam.invite_code,
             },
           });
-          // 启动同步：网络恢复 / 回到前台时排空队列 + Realtime 订阅
-          network.onChange(() => drainQueue());
-          drainQueue();
-          subscribeRealtime(pb, fam.id);
         }
       }
       await restoreTimer(); // 恢复被杀掉的计时器
       setReady();
     })();
   }, []);
+
+  // S9：进入已登录态就启动同步。之前 network.onChange / drainQueue / subscribeRealtime
+  // 只在冷启动有登录态时注册一次，新注册/登录后本次启动内 realtime 永远不工作；
+  // 退出登录时取消订阅，避免旧订阅泄漏。冷启动、注册、登录、重新登录都会走到这里。
+  const familyId = family?.id;
+  useEffect(() => {
+    if (!ready || !authed || !familyId) return;
+    const cleanups: Array<() => void> = [];
+    cleanups.push(network.onChange(() => drainQueue()));
+    drainQueue();
+    cleanups.push(subscribeRealtime(pb, familyId));
+    return () => {
+      cleanups.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
+    };
+  }, [ready, authed, familyId]);
 
   useEffect(() => {
     if (!ready) return;

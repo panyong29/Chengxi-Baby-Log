@@ -53,6 +53,7 @@ export default function FeedScreen() {
           <PrimaryBtn text="保存这次瓶喂" onPress={async () => {
             const v = parseInt(ml, 10);
             if (!v || v <= 0) return Alert.alert('提示', '先填毫升数');
+            if (v > 500) return Alert.alert('提示', '毫升数不太对吧？最大 500ml');
             await logBottle(v);
             Alert.alert('已记录', `瓶喂 ${v} ml`);
             router.back();
