@@ -1,0 +1,30 @@
+# Chengxi Baby Log · 服务端一键部署
+# 用法（在本机本目录执行）：./deploy.sh
+# 组成：
+#   pocketbase  后端（沿用原有数据卷 /home/muse/pocketbase/data，原容器会被 compose 接管）
+#   web         nginx:alpine，托管 web 客户端静态文件 + 反代 PocketBase
+services:
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: pocketbase
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      # 数据卷与旧单容器完全一致，迁移不丢数据
+      - /home/muse/pocketbase/data:/pb_data
+      - /home/muse/pocketbase/pb_hooks:/pb_hooks
+
+  web:
+    image: nginx:alpine
+    container_name: babylog-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      # 放在 /opt 下（755），容器内 nginx worker（非 root）可读；
+      # 若放进 750 的家目录会 403
+      - /opt/babylog/web-dist:/usr/share/nginx/html:ro
+      - ./nginx-web.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - pocketbase
