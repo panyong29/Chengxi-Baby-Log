@@ -43,7 +43,6 @@ export default function BackfillScreen() {
           startedAt: ts - mins * 60000, endedAt: ts, note: null, isBackfill: 1, ...ctx,
         });
       }
-      Alert.alert('已保存', '补录成功');
       router.back();
     } catch (e: any) {
       Alert.alert('出错了', e.message);

@@ -2,8 +2,6 @@ import { useCallback, useState } from 'react';
 import { Alert,  Text,  TextInput,  View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { and, asc, eq, ne } from 'drizzle-orm';
 import { useStore } from '../../store/useStore';
 import { fetchMembers, logout, pb, refreshInviteCode } from '../../api/pocketbase';
@@ -115,13 +113,23 @@ export default function MeScreen() {
       if (rows.length === 1) { Alert.alert('提示', '还没有记录，导出的文件是空的'); return; }
       const csv = '﻿' + rows.join('\n');
       const name = `宝宝记录_${family.babyNickname}_${new Date().toISOString().slice(0, 10)}.csv`;
-      const path = (FileSystem.cacheDirectory || '') + name;
-      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(path, { dialogTitle: '导出宝宝记录 CSV' });
-      } else {
+      // 懒加载：expo-file-system / expo-sharing 只在点导出时才加载，
+      // 避免它们原生模块有问题时导致"我的"页一打开就闪退
+      try {
+        const FileSystem = await import('expo-file-system');
+        const Sharing = await import('expo-sharing');
+        const path = (FileSystem.cacheDirectory || '') + name;
+        await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(path, { dialogTitle: '导出宝宝记录 CSV' });
+        } else {
+          await Clipboard.setStringAsync(csv);
+          Alert.alert('已复制', '此设备不支持直接分享，CSV 内容已复制到剪贴板。');
+        }
+      } catch (e: any) {
+        // 原生模块不可用时降级为复制到剪贴板
         await Clipboard.setStringAsync(csv);
-        Alert.alert('已复制', '此设备不支持直接分享，CSV 内容已复制到剪贴板。');
+        Alert.alert('已复制', '导出功能暂不可用，CSV 内容已复制到剪贴板。');
       }
     } catch (e: any) {
       Alert.alert('导出失败', e.message || '请重试');

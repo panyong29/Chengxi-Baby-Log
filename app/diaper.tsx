@@ -31,7 +31,6 @@ export default function DiaperScreen() {
       <PrimaryBtn text="保存" onPress={async () => {
         if (!kind) return Alert.alert('提示', '先选：湿 / 脏 / 混合');
         await logDiaper(kind, undefined, note.trim() || undefined);
-        Alert.alert('已记录', '尿布 · ' + { wet: '湿', dirty: '脏', mixed: '混合' }[kind]);
         router.back();
       }} />
       <View style={styles.gap} />
